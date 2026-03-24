@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import supabase from "../utils/supabase";
+import supabase from "./utils/supabase";
 
 export type Category =
   | "breakfast"
