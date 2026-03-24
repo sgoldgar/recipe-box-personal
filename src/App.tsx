@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 export type Category =
   | "breakfast"
@@ -29,6 +29,8 @@ export interface Recipe {
   createdAt: number;
   notes?: string;
 }
+
+const API_BASE = process.env.REACT_APP_API_BASE || "/.netlify/functions";
 
 const CATEGORY_COLORS: Record<Category, string> = {
   breakfast: "#FFB347",
@@ -61,18 +63,49 @@ const CUISINE_EMOJIS: Record<Cuisine, string> = {
 
 const STORAGE_KEY = "recipe-box-v1";
 
-function loadRecipes(): Recipe[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+// server functions
+async function fetchRecipesFromServer(): Promise<Recipe[]> {
+  const res = await fetch(`${API_BASE}/api/recipes`);
+  if (!res.ok) throw new Error("Failed to fetch recipes");
+  return res.json();
 }
 
-function saveRecipes(recipes: Recipe[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+async function fetchRecipesFromServer(): Promise<Recipe[]> {
+  const res = await fetch(`${API_BASE}/recipes`);
+  if (!res.ok) throw new Error("Failed to fetch recipes");
+  return res.json();
 }
+
+async function createRecipeOnServer(recipe: Recipe): Promise<Recipe> {
+  const res = await fetch(`${API_BASE}/recipes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(recipe),
+  });
+  if (!res.ok) throw new Error("Failed to create recipe");
+  return res.json();
+}
+
+async function deleteRecipeOnServer(id: string) {
+  // Netlify function expects id as a query param
+  const res = await fetch(`${API_BASE}/recipes?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok && res.status !== 204) throw new Error("Failed to delete recipe");
+}
+
+// function loadRecipes(): Recipe[] {
+//   try {
+//     const raw = localStorage.getItem(STORAGE_KEY);
+//     return raw ? JSON.parse(raw) : [];
+//   } catch {
+//     return [];
+//   }
+// }
+
+// function saveRecipes(recipes: Recipe[]) {
+//   localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
+// }
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((res, rej) => {
@@ -84,7 +117,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function App() {
-  const [recipes, setRecipes] = useState<Recipe[]>(loadRecipes);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [view, setView] = useState<"grid" | "upload" | "detail">("grid");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
@@ -92,17 +125,36 @@ export default function App() {
   const [filterTag, setFilterTag] = useState("");
   const [search, setSearch] = useState("");
 
+  useEffect(() => {
+    let mounted = true;
+    fetchRecipesFromServer()
+      .then((data) => {
+        if (mounted) setRecipes(data);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const selectedRecipe = recipes.find((r) => r.id === selectedId) ?? null;
 
   const updateRecipes = (next: Recipe[]) => {
     setRecipes(next);
-    saveRecipes(next);
   };
 
-  const deleteRecipe = (id: string) => {
-    updateRecipes(recipes.filter((r) => r.id !== id));
-    setView("grid");
-    setSelectedId(null);
+  const deleteRecipe = async (id: string) => {
+    try {
+      await deleteRecipeOnServer(id);
+      updateRecipes(recipes.filter((r) => r.id !== id));
+      setView("grid");
+      setSelectedId(null);
+    } catch (err) {
+      console.error(err);
+      // optionally show UI feedback
+    }
   };
 
   const filtered = recipes.filter((r) => {
@@ -168,9 +220,16 @@ export default function App() {
 
       {view === "upload" && (
         <UploadView
-          onSave={(r) => {
-            updateRecipes([r, ...recipes]);
-            setView("grid");
+          onSave={async (r) => {
+            try {
+              const created = await createRecipeOnServer(r);
+              // prepend new recipe to local state
+              updateRecipes([created, ...recipes]);
+              setView("grid");
+            } catch (err) {
+              console.error(err);
+              // optionally show UI feedback
+            }
           }}
           onCancel={() => setView("grid")}
         />
