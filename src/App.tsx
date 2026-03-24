@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import supabase from "../utils/supabase";
 
 export type Category =
   | "breakfast"
@@ -30,8 +31,6 @@ export interface Recipe {
   notes?: string;
 }
 
-const API_BASE = process.env.REACT_APP_API_BASE || "/.netlify/functions";
-
 const CATEGORY_COLORS: Record<Category, string> = {
   breakfast: "#FFB347",
   lunch: "#87CEEB",
@@ -61,37 +60,67 @@ const CUISINE_EMOJIS: Record<Cuisine, string> = {
   other: "🌍",
 };
 
-const STORAGE_KEY = "recipe-box-v1";
-
 // server functions
 async function fetchRecipesFromServer(): Promise<Recipe[]> {
-  const res = await fetch(`${API_BASE}/api/recipes`);
-  if (!res.ok) throw new Error("Failed to fetch recipes");
-  return res.json();
-}
+  const { data, error } = await supabase
+    .from("recipes")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-async function fetchRecipesFromServer(): Promise<Recipe[]> {
-  const res = await fetch(`${API_BASE}/recipes`);
-  if (!res.ok) throw new Error("Failed to fetch recipes");
-  return res.json();
+  if (error) throw error;
+
+  return (data || []).map((d: any) => ({
+    id: d.id,
+    name: d.name,
+    category: d.category,
+    cuisine: d.cuisine,
+    tags: d.tags ?? [],
+    fileType: d.file_type as "image" | "pdf",
+    fileData: d.file_data,
+    fileName: d.file_name,
+    createdAt: d.created_at,
+    notes: d.notes ?? undefined,
+  }));
 }
 
 async function createRecipeOnServer(recipe: Recipe): Promise<Recipe> {
-  const res = await fetch(`${API_BASE}/recipes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(recipe),
-  });
-  if (!res.ok) throw new Error("Failed to create recipe");
-  return res.json();
+  const payload: any = {
+    name: recipe.name,
+    category: recipe.category,
+    cuisine: recipe.cuisine,
+    tags: recipe.tags,
+    file_type: recipe.fileType,
+    file_data: recipe.fileData,
+    file_name: recipe.fileName,
+    created_at: recipe.createdAt ?? Date.now(),
+    notes: recipe.notes ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("recipes")
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    name: data.name,
+    category: data.category,
+    cuisine: data.cuisine,
+    tags: data.tags ?? [],
+    fileType: data.file_type,
+    fileData: data.file_data,
+    fileName: data.file_name,
+    createdAt: data.created_at,
+    notes: data.notes ?? undefined,
+  };
 }
 
 async function deleteRecipeOnServer(id: string) {
-  // Netlify function expects id as a query param
-  const res = await fetch(`${API_BASE}/recipes?id=${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok && res.status !== 204) throw new Error("Failed to delete recipe");
+  const { error } = await supabase.from("recipes").delete().eq("id", id);
+  if (error) throw error;
 }
 
 // function loadRecipes(): Recipe[] {
