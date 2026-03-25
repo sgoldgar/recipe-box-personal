@@ -836,6 +836,8 @@ function UploadView({
                   "dessert",
                   "snack",
                   "drink",
+                  "mealprep",
+                  "side",
                 ] as Category[]
               ).map((c) => (
                 <option key={c} value={c}>
@@ -851,11 +853,12 @@ function UploadView({
               {(
                 [
                   "italian",
-                  "asian",
+                  "chinese",
+                  "thai",
+                  "japanese",
                   "american",
                   "mexican",
                   "mediterranean",
-                  "french",
                   "indian",
                   "other",
                 ] as Cuisine[]
