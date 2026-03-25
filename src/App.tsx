@@ -7,14 +7,18 @@ export type Category =
   | "dinner"
   | "dessert"
   | "snack"
-  | "drink";
+  | "drink"
+  | "mealprep"
+  | "side";
+
 export type Cuisine =
   | "italian"
-  | "asian"
+  | "thai"
+  | "chinese"
+  | "japanese"
   | "american"
   | "mexican"
   | "mediterranean"
-  | "french"
   | "indian"
   | "other";
 
@@ -38,6 +42,8 @@ const CATEGORY_COLORS: Record<Category, string> = {
   dessert: "#FFB6C1",
   snack: "#98FB98",
   drink: "#87CEFA",
+  mealprep: "#c2db36ff",
+  side: "#D8BFD8",
 };
 
 const CATEGORY_EMOJIS: Record<Category, string> = {
@@ -47,15 +53,18 @@ const CATEGORY_EMOJIS: Record<Category, string> = {
   dessert: "🍰",
   snack: "🍿",
   drink: "🥤",
+  mealprep: "🍱",
+  side: "🥔",
 };
 
 const CUISINE_EMOJIS: Record<Cuisine, string> = {
-  italian: "🇮🇹",
-  asian: "🥢",
+  italian: "🍝",
+  thai: "🥢",
+  chinese: "🥡",
+  japanese: "🍣",
   american: "🦅",
   mexican: "🌮",
   mediterranean: "🫒",
-  french: "🥐",
   indian: "🍛",
   other: "🌍",
 };
